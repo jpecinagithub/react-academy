@@ -1,11 +1,13 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
-import { Play, RotateCcw, Copy, Check, Wand2, TerminalSquare } from 'lucide-react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Play, RotateCcw, Copy, Check, Wand2, TerminalSquare, FilePlus2 } from 'lucide-react'
 import { useLang } from '../i18n/index.jsx'
 import { PageHeader } from '../components/ui.jsx'
+import { getSandbox } from '../sandboxes/registry.js'
 import { track } from '../utils/analytics.js'
 
 const CodeEditor = lazy(() => import('../components/CodeEditor.jsx'))
-const ReactRunner = lazy(() => import('../runtime/ReactRunner.jsx'))
+const MultiFileRunner = lazy(() => import('../runtime/MultiFileRunner.jsx'))
 
 const STRINGS = {
   subtitle: {
@@ -16,6 +18,15 @@ const STRINGS = {
   tabPreview: { en: 'Preview', es: 'Vista previa' },
   copied: { en: 'Copied', es: 'Copiado' },
   filesLabel: { en: 'Files', es: 'Archivos' },
+  templateLabel: { en: 'New from template', es: 'Nuevo desde plantilla' },
+  templateBlank: { en: 'Blank component', es: 'Componente vacío' },
+  templateCounter: { en: 'Counter', es: 'Contador' },
+  templateFetch: { en: 'Fetch pattern', es: 'Patrón de fetch' },
+  templateContext: { en: 'Context pattern', es: 'Patrón de contexto' },
+  sandboxLoaded: {
+    en: 'Loaded sandbox “{name}”. Reset returns to its original files.',
+    es: 'Sandbox «{name}» cargado. Reset vuelve a sus archivos originales.',
+  },
 }
 
 const DEFAULT_FILES = {
@@ -66,17 +77,138 @@ const DEFAULT_FILES = {
 }`,
 }
 
-// Multi-file assembly for the preview: later phases may teach imports; for
-// now the runner concatenates the non-App files above App (each file must
-// declare its component as a top-level function/class named after the file).
-function assemble(files) {
-  const app = files['App.jsx'] ?? ''
-  const rest = Object.entries(files)
-    .filter(([name]) => name !== 'App.jsx')
-    .map(([, code]) => code)
-    .join('\n\n')
-  return `${rest}\n\n${app}`
+const TEMPLATES = {
+  blank: () => [
+    {
+      name: 'App.jsx',
+      code: `export default function App() {
+  return (
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      <h2>Hello, React!</h2>
+      <p>Edit me and press Run.</p>
+    </div>
+  );
+}`,
+    },
+  ],
+  counter: () => [
+    {
+      name: 'App.jsx',
+      code: `import Counter from './Counter.jsx';
+
+export default function App() {
+  return (
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      <h2>Counter from a template</h2>
+      <Counter />
+    </div>
+  );
+}`,
+    },
+    {
+      name: 'Counter.jsx',
+      code: `import { useState } from 'react';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button
+      onClick={() => setCount(count + 1)}
+      style={{ padding: '10px 20px', borderRadius: 8, cursor: 'pointer' }}
+    >
+      clicked {count} times
+    </button>
+  );
+}`,
+    },
+  ],
+  fetch: () => [
+    {
+      name: 'App.jsx',
+      code: `export default function App() {
+  const [status, setStatus] = useState('idle');
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    setStatus('loading');
+    const id = setTimeout(() => {
+      setData({ message: 'Hello from the (fake) server!' });
+      setStatus('success');
+    }, 1000);
+    return () => clearTimeout(id);
+  }, []);
+
+  return (
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      <h2>Fetch pattern</h2>
+      {status === 'loading' && <p>⏳ Loading…</p>}
+      {status === 'success' && <p>✅ {data.message}</p>}
+    </div>
+  );
+}`,
+    },
+  ],
+  context: () => [
+    {
+      name: 'ThemeContext.jsx',
+      code: `import { createContext, useContext, useState } from 'react';
+
+const ThemeCtx = createContext('light');
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('light');
+  return (
+    <ThemeCtx.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeCtx.Provider>
+  );
 }
+
+export function useTheme() {
+  return useContext(ThemeCtx);
+}`,
+    },
+    {
+      name: 'App.jsx',
+      code: `import { ThemeProvider, useTheme } from './ThemeContext.jsx';
+
+function ThemedBox() {
+  const { theme, setTheme } = useTheme();
+  const dark = theme === 'dark';
+  return (
+    <div style={{
+      padding: 24, borderRadius: 12,
+      background: dark ? '#0b0e11' : '#f7f9fc',
+      color: dark ? '#e9f0f7' : '#141b24',
+      border: '1px solid #2b3644',
+    }}>
+      <p>Current theme: <strong>{theme}</strong></p>
+      <button
+        onClick={() => setTheme(dark ? 'light' : 'dark')}
+        style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}
+      >
+        Toggle
+      </button>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      <h2>Context pattern</h2>
+      <ThemeProvider>
+        <ThemedBox />
+      </ThemeProvider>
+    </div>
+  );
+}`,
+    },
+  ],
+}
+
+const toFileArray = (obj) =>
+  Object.entries(obj).map(([name, code]) => ({ name, code }))
 
 // Naive "format": trim trailing whitespace, ensure final newline, normalize
 // indentation of obvious blocks. Real prettier comes in a later phase if wanted.
@@ -90,26 +222,43 @@ function naiveFormat(code) {
 }
 
 export default function Playground() {
-  const { t } = useLang()
-  const [files, setFiles] = useState(DEFAULT_FILES)
-  const [activeFile, setActiveFile] = useState('App.jsx')
+  const { t, lang } = useLang()
+  const [searchParams] = useSearchParams()
+  const sandboxParam = searchParams.get('sandbox')
+  const sandbox = sandboxParam ? getSandbox(sandboxParam) : null
+
+  // Deep link ?sandbox=<id> loads that sandbox's files; Reset returns to them.
+  const initialFiles = sandbox ? sandbox.files : toFileArray(DEFAULT_FILES)
+  const initialName = sandbox ? sandbox.files[0].name : 'App.jsx'
+
+  const [files, setFiles] = useState(initialFiles)
+  const [activeFile, setActiveFile] = useState(initialName)
   const [runKey, setRunKey] = useState(0)
   const [copied, setCopied] = useState(false)
   const [mobileTab, setMobileTab] = useState('code') // 'code' | 'preview'
 
-  const code = files[activeFile] ?? ''
-  const previewCode = useMemo(() => assemble(files), [files])
+  // If the deep link changes (e.g. user pastes another ?sandbox=), reload.
+  useEffect(() => {
+    setFiles(initialFiles)
+    setActiveFile(initialName)
+    setRunKey((k) => k + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sandboxParam])
+
+  const code = files.find((f) => f.name === activeFile)?.code ?? ''
 
   const updateFile = (value) =>
-    setFiles((f) => ({ ...f, [activeFile]: value ?? '' }))
+    setFiles((fs) =>
+      fs.map((f) => (f.name === activeFile ? { ...f, code: value ?? '' } : f)),
+    )
 
   const run = () => {
     setRunKey((k) => k + 1)
     track('playground_run', { file: activeFile })
   }
   const reset = () => {
-    setFiles(DEFAULT_FILES)
-    setActiveFile('App.jsx')
+    setFiles(initialFiles)
+    setActiveFile(initialName)
     setRunKey((k) => k + 1)
   }
   const format = () => updateFile(naiveFormat(code))
@@ -122,23 +271,50 @@ export default function Playground() {
       /* ignore */
     }
   }
+  const loadTemplate = (key) => {
+    if (!key || !TEMPLATES[key]) return
+    const tf = TEMPLATES[key]()
+    setFiles(tf)
+    setActiveFile(tf[0].name)
+    setRunKey((k) => k + 1)
+    track('playground_template', { template: key })
+  }
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2 no-print">
+      <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+        <FilePlus2 size={15} aria-hidden />
+        <span className="sr-only">{t(STRINGS.templateLabel)}</span>
+        <select
+          aria-label={t(STRINGS.templateLabel)}
+          defaultValue=""
+          onChange={(e) => {
+            loadTemplate(e.target.value)
+            e.target.value = ''
+          }}
+          className="btn !py-1.5 cursor-pointer"
+        >
+          <option value="">{t(STRINGS.templateLabel)}…</option>
+          <option value="blank">{t(STRINGS.templateBlank)}</option>
+          <option value="counter">{t(STRINGS.templateCounter)}</option>
+          <option value="fetch">{t(STRINGS.templateFetch)}</option>
+          <option value="context">{t(STRINGS.templateContext)}</option>
+        </select>
+      </label>
       <button type="button" className="btn btn-primary" onClick={run}>
-        <Play size={15} />
+        <Play size={15} aria-hidden />
         {t('common.run')}
       </button>
       <button type="button" className="btn" onClick={reset}>
-        <RotateCcw size={15} />
+        <RotateCcw size={15} aria-hidden />
         {t('common.reset')}
       </button>
       <button type="button" className="btn" onClick={format} title={t('common.format')}>
-        <Wand2 size={15} />
+        <Wand2 size={15} aria-hidden />
         {t('common.format')}
       </button>
       <button type="button" className="btn" onClick={copy}>
-        {copied ? <Check size={15} /> : <Copy size={15} />}
+        {copied ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
         {copied ? t(STRINGS.copied) : t('common.copy')}
       </button>
     </div>
@@ -153,7 +329,7 @@ export default function Playground() {
   const previewPane = (
     <div className="h-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 overflow-auto">
       <Suspense fallback={<div className="p-8 text-[var(--muted)] text-sm">{t('common.loading')}</div>}>
-        <ReactRunner code={previewCode} runKey={runKey} />
+        <MultiFileRunner files={files} runKey={runKey} />
       </Suspense>
     </div>
   )
@@ -166,6 +342,11 @@ export default function Playground() {
         icon={TerminalSquare}
         actions={toolbar}
       />
+      {sandbox && (
+        <p className="text-xs text-[var(--muted)] mb-2" role="status">
+          {t(STRINGS.sandboxLoaded, { name: sandbox.title[lang] })}
+        </p>
+      )}
 
       {/* Mobile tabs */}
       <div className="md:hidden flex gap-2 mb-3 no-print" role="tablist" aria-label="playground view">
@@ -189,20 +370,20 @@ export default function Playground() {
           <p className="text-xs font-bold text-[var(--faint)] uppercase tracking-wider px-2 mb-2">
             src/
           </p>
-          {Object.keys(files).map((name) => (
+          {files.map((f) => (
             <button
-              key={name}
+              key={f.name}
               type="button"
-              onClick={() => setActiveFile(name)}
-              aria-current={activeFile === name}
+              onClick={() => setActiveFile(f.name)}
+              aria-current={activeFile === f.name}
               className="w-full text-left px-3 py-2 rounded-lg text-sm mono transition-colors"
               style={
-                activeFile === name
+                activeFile === f.name
                   ? { background: 'var(--accent-dim)', color: 'var(--accent)', fontWeight: 700 }
                   : { color: 'var(--muted)' }
               }
             >
-              {name}
+              {f.name}
             </button>
           ))}
         </div>
@@ -221,14 +402,14 @@ export default function Playground() {
         {mobileTab === 'code' ? (
           <div className="h-full flex flex-col">
             <div className="flex gap-2 mb-2 overflow-x-auto no-print" aria-label={t(STRINGS.filesLabel)}>
-              {Object.keys(files).map((name) => (
+              {files.map((f) => (
                 <button
-                  key={name}
+                  key={f.name}
                   type="button"
-                  onClick={() => setActiveFile(name)}
-                  className={activeFile === name ? 'btn btn-primary !text-xs' : 'btn !text-xs'}
+                  onClick={() => setActiveFile(f.name)}
+                  className={activeFile === f.name ? 'btn btn-primary !text-xs' : 'btn !text-xs'}
                 >
-                  {name}
+                  {f.name}
                 </button>
               ))}
             </div>

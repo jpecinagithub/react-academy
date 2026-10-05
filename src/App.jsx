@@ -49,6 +49,7 @@ export default function App() {
         <Route path="/playground" element={<Playground />} />
         <Route path="/sandboxes" element={<Sandboxes />} />
         <Route path="/challenges" element={<Challenges />} />
+        <Route path="/challenges/:id" element={<Challenges />} />
         <Route path="/quiz/:moduleId" element={<QuizPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/path" element={<Path />} />

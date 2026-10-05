@@ -76,6 +76,16 @@ export const useStore = create(
           },
         })),
 
+      // Phase 8: explicit "mark explored" action (same progress bucket as
+      // visitSandbox, kept separate for semantic clarity).
+      exploreSandbox: (sandboxId) =>
+        set((s) => ({
+          progress: {
+            ...s.progress,
+            sandboxes: { ...s.progress.sandboxes, [sandboxId]: true },
+          },
+        })),
+
       resetProgress: () =>
         set({
           progress: {
