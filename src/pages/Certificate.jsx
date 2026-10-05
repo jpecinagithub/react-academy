@@ -6,6 +6,8 @@ import { useStore, selectOverallProgress } from '../state/store.js'
 import { LABS } from '../labs/loader.js'
 import { LESSONS } from '../lessons/loader.js'
 import { QUIZZES } from '../quizzes/loader.js'
+import { CHALLENGE_COUNT } from '../challenges/registry.js'
+import { SANDBOX_COUNT } from '../sandboxes/registry.js'
 import { PageHeader } from '../components/ui.jsx'
 import { ProgressRing } from '../components/ui.jsx'
 
@@ -46,9 +48,9 @@ export default function Certificate() {
   const totals = {
     lessons: LESSONS.length,
     labs: LABS.length,
-    challenges: 0,
+    challenges: CHALLENGE_COUNT,
     quizzes: QUIZZES.length,
-    sandboxes: 0,
+    sandboxes: SANDBOX_COUNT,
   }
   const score = selectOverallProgress(progress, totals)
   const unlocked = score >= THRESHOLD

@@ -7,6 +7,8 @@ import { MODULES } from '../data/modules.js'
 import { LABS, getLabsByModule } from '../labs/loader.js'
 import { LESSONS, getLessonsByModule } from '../lessons/loader.js'
 import { QUIZZES } from '../quizzes/loader.js'
+import { CHALLENGE_COUNT } from '../challenges/registry.js'
+import { SANDBOX_COUNT } from '../sandboxes/registry.js'
 import { PageHeader, ProgressRing, Callout } from '../components/ui.jsx'
 import { ModuleIcon } from '../utils/icons.jsx'
 
@@ -27,8 +29,8 @@ const STRINGS = {
     es: '¿Borrar todo el progreso local? No se puede deshacer.',
   },
   noContent: {
-    en: 'Content is still being built — your progress will grow with each phase.',
-    es: 'El contenido aún se está construyendo: tu progreso crecerá con cada fase.',
+    en: 'Complete lessons, labs, quizzes, challenges and sandboxes to grow your progress.',
+    es: 'Completa lecciones, laboratorios, cuestionarios, retos y sandboxes para hacer crecer tu progreso.',
   },
 }
 
@@ -58,9 +60,9 @@ export default function Dashboard() {
   const totals = {
     lessons: LESSONS.length,
     labs: LABS.length,
-    challenges: 0, // Phase 9 registers challenge ids
+    challenges: CHALLENGE_COUNT,
     quizzes: QUIZZES.length,
-    sandboxes: 0, // Phase 8 registers sandbox ids
+    sandboxes: SANDBOX_COUNT,
   }
   const overall = selectOverallProgress(progress, totals)
 

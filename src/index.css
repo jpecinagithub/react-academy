@@ -270,6 +270,9 @@ pre,
     background: transparent !important;
     border-color: #ccc !important;
   }
+  .print-sheet.print-dim {
+    display: none !important;
+  }
   @page {
     margin: 18mm;
   }

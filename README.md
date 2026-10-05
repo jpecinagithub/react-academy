@@ -22,38 +22,78 @@ npm run lint     # oxlint
 
 Requirements: Node 18+.
 
-## What's included (Phase 0)
+## What's included (final)
 
-- **Shell**: bilingual layout (EN/ES toggle, persisted), dark/light theme,
-  learning-mode tooltips toggle, mobile navigation, footer with author credit.
-- **18-module curriculum registry** (`src/data/modules.js`): Before React →
-  Thinking in React, each with difficulty, icon, bilingual title/blurb.
+- **18 modules, bilingual EN/ES**: Before React → Why React → Components →
+  JSX → Props → State → Rendering → Events → Conditional & Lists → Forms →
+  Effects → Data Fetching → Hooks → Context → Patterns → Internals → Tools →
+  Thinking in React. Every module page lists its lessons, labs and quiz.
+- **18 lessons** (one per module, data-driven via `src/lessons/`) with
+  markdown-lite sections, callouts, flow diagrams, checklists and links to
+  labs/quizzes.
+- **32 interactive labs** (`src/labs/`): Vanilla-vs-React split screen,
+  Component Builder (drag components, live component tree, highlight
+  boundaries), JSX Translator, Props Lab (incl. "break the component"),
+  State Machine Lab (animated event → setState → render flow), Render
+  Visualizer, Event Flow Simulator, List Reconciliation Lab (with/without
+  keys), Controlled Input Lab, Effect Lab (dependency-array explorer),
+  Cleanup simulator, API Fetch Lab (latency/error/empty controls),
+  Lifecycle Simulator, useRef / useMemo / useCallback labs, Prop-Drilling
+  Visualizer → Context, Custom Hook Builder, Router simulator, Virtual DOM
+  diff visualizer, Reconciliation demo, State Batching Lab, Stale Closures
+  simulator, Immutability Lab, DevTools-concept inspector, Render Profiler,
+  Data Flow Visualizer, "Where should state live?" game, Thinking-in-React
+  board.
+- **18 module quizzes** (`src/quizzes/`, 90 questions total): understanding
+  over trivia — batching predictions, dependency-array choices,
+  reconciliation decisions. Best score kept per quiz
+  (`progress.quizzes`), instant feedback with explanations.
+- **25 runnable sandboxes** (`src/sandboxes/`): Counter → Kanban board,
+  Theme/Language context, useReducer, memoization… each editable with
+  Code/Preview tabs on mobile.
+- **22 challenges** (`src/challenges/`): fill-in-the-blank, bug hunts
+  (infinite useEffect, missing key, mutating state, …), predict-the-output
+  with step-by-step reveals.
+- **5 guided mini-apps** (`src/miniapps/`): Todo App, Weather Dashboard,
+  Expense Tracker, Movie Search, Mini Ecommerce — starter code with TODOs
+  the learner completes.
+- **8 cheat sheets** (`/cheatsheets`): useState, useEffect, JSX, Events,
+  Arrays & Keys, Forms, React Router, Hooks overview — bilingual
+  syntax tables + tips, printable individually or all at once.
+- **Playground** (`/playground`): multi-file IDE (App.jsx, Counter.jsx,
+  UserCard.jsx), editable + live preview, Run/Reset/Format/Copy, errors
+  contained in the sandbox.
+- **Progress dashboard** (`/dashboard`): overall % ring, per-module bars,
+  counts of lessons/labs/challenges/quizzes, Reset Progress (with confirm).
+  Totals derive from the real registries — no hardcodes.
+- **Certificate** (`/certificate`): unlocks at ≥ 60 % overall progress,
+  name field, print/PDF via the browser. Generated locally, no backend.
+- **Learning Path** (`/path`): clickable roadmap; **Concept Map**
+  (`/concepts`): interactive graph of React concepts; **Glossary**
+  (`/glossary`): 24 searchable terms with definitions, examples and
+  lesson links.
+- **Shell**: bilingual chrome (EN/ES toggle persisted as `rfa-lang`),
+  dark/light theme, learning-mode tooltips toggle, mobile navigation,
+  footer with author credit.
 - **Shared UI contracts** (`src/components/ui.jsx`): `SimulationShell`,
   `PageHeader`, `CodeBlock` (regex highlighter, no dep), `Callout`,
   `FlowSteps` (animated, reduced-motion safe), `Quiz`, `DifficultyBadge`,
   `ProgressRing`, `GlossaryTerm`, `Compare`, `SectionTitle`.
 - **Runtimes**: `ReactRunner` (sucrase JSX transform + `new Function`,
-  errors contained in an error boundary — user code can never crash the app),
-  `JsConsole` (iframe-sandboxed plain JS with 3 s anti-loop timeout),
-  `CodeEditor` (CodeMirror 6, lazy-loaded).
-- **Pages**: Home (with manipulable live demos), Modules, Module page,
-  Lab page (lazy lab loading), Playground (multi-file IDE: editor/preview,
-  desktop panes + mobile tabs), Sandboxes (placeholder), Challenges
-  (placeholder), Quiz page, Dashboard (progress + reset), Learning Path,
-  Concept Map (interactive SVG + glossary panel), Glossary (searchable),
-  Cheat Sheets (print-ready placeholders), Certificate (unlocks at 60 %,
-  print/PDF via browser), About, 404.
-- **Persistence**: zustand + localStorage (`rfa-store-v1`): language, theme,
-  tooltip mode, lessons/labs/challenges/quizzes/sandboxes progress.
-- **PWA**: `vite-plugin-pwa` — manifest, generated icons
-  (`tools/make-icons.mjs`, pure-Node PNG writer), service worker with
-  offline shell, installable.
-- **Analytics**: `@vercel/analytics` + `@vercel/speed-insights`; page views
-  and lab opens tracked automatically via the safe `track()` wrapper.
-- **Example lab**: `/lab/hello-lab` proves the full lab contract end to end.
-- **Content contracts**: see `docs/CONTRACTS.md` — the exact recipe later
-  phases follow to add labs, lessons, quizzes, cheat sheets, sandboxes and
-  challenges.
+  syntax/runtime errors render a bilingual `SandboxError` inside an error
+  boundary — user code can never crash the app), `JsConsole`
+  (iframe-sandboxed plain JS with 3 s anti-loop timeout), `CodeEditor`
+  (CodeMirror 6, lazy-loaded).
+- **Persistence**: zustand + localStorage (`rfa-store-v1`): language,
+  theme, tooltip mode, lessons/labs/challenges/quizzes/sandboxes
+  progress. No login, no accounts.
+- **PWA**: `vite-plugin-pwa` — manifest (192/512 + maskable PNG icons),
+  service worker with offline shell, installable.
+- **Analytics**: `@vercel/analytics` + `@vercel/speed-insights` mounted in
+  `main.jsx`; page views, lab opens, quiz finishes tracked via the safe
+  `track()` wrapper (no personal data).
+- **Content contracts**: `docs/CONTRACTS.md` — the recipe for adding labs,
+  lessons, quizzes, cheat sheets, sandboxes and challenges.
 
 ## Deploy to Vercel
 
@@ -67,6 +107,17 @@ Requirements: Node 18+.
 
 No environment variables needed. No backend.
 
+## PWA notes
+
+- Manifest: `public/manifest.webmanifest` (name, `start_url: /`,
+  192/512 + maskable PNG icons in `public/icons/`, generated with
+  `node tools/make-icons.mjs`).
+- Service worker: generated by `vite-plugin-pwa` (`generateSW`,
+  precache ~104 entries / ~2 MB) — `dist/sw.js` + workbox runtime.
+- After the first visit the shell and all content pages work offline;
+  installable from the browser via "Add to Home screen" / install prompt.
+- Icon/theme updates: rerun `node tools/make-icons.mjs`, then rebuild.
+
 ## Project structure
 
 ```
@@ -79,9 +130,13 @@ src/
   components/         # ui.jsx contracts, CodeEditor.jsx, Layout.jsx
   runtime/            # ReactRunner.jsx, JsConsole.jsx
   data/               # modules.js (18), glossary.js (24 terms)
-  labs/               # loader.js + _template/ + hello/ (example)
-  lessons/            # loader.js + renderer.jsx + _template/
-  quizzes/            # loader.js + _template/
+  labs/               # loader.js + 32 labs (manifest.js + lazy Lab.jsx each)
+  lessons/            # loader.js + renderer.jsx + 18 lessons (one per module)
+  quizzes/            # loader.js + 18 module quizzes (90 questions)
+  sandboxes/          # registry.js + items/ (25 runnable sandboxes)
+  challenges/         # registry.js (22) + ChallengeView.jsx
+  miniapps/           # data.js (5 guided mini-apps)
+  pages/              # 17 pages (Home … About, 404)
   utils/              # markdown.jsx (markdown-lite), analytics.js, icons.jsx
   pages/              # 16 pages
 tools/make-icons.mjs  # PWA icon generator (node tools/make-icons.mjs)
@@ -97,10 +152,10 @@ docs/CONTRACTS.md     # content contracts for later phases
 - Every lab is wrapped in `<SimulationShell labId=…>`.
 - Keep `npm run build` green and `npm run lint` at 0 warnings.
 
-## Roadmap
+## Status
 
-- **Phase 1–7**: lessons + ~30 labs per the module plan (vanilla-vs-React,
-  Component Builder, JSX translator, Props Lab, State Machine Lab, Render
-  Visualizer, Event Flow, Effect Lab, …).
-- **Phase 8**: 25 runnable sandboxes. **Phase 9**: challenges + bug hunts.
-- **Phase 10**: cheat-sheet content, final quizzes, certificate polish.
+All 10 phases complete: shell + contracts (0), core modules (1–7),
+playground + sandbox library (8), challenges + bug hunts + predict +
+mini-apps (9), module quizzes + cheat sheets + dashboard wiring + final
+verification (10). `npm run build` green, `npm run lint` (oxlint) 0
+warnings, all routes smoke-tested, EN/ES audited, PWA verified.
