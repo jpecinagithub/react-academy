@@ -289,7 +289,7 @@ function BugHuntView({ challenge, onSuccess }) {
               )
             })}
           </div>
-          {pickedWrong && (
+          {fixMsg === 'wrong' && (
             <p className="text-sm text-[var(--red)] mt-3" role="alert">
               {t(STRINGS.wrongFix)}
             </p>
