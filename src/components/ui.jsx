@@ -321,7 +321,7 @@ export function Quiz({ questions = [], quizId = 'quiz', onFinish }) {
     setRevealed(true)
     recordQuiz(quizId, score, questions.length)
     track('quiz_finish', { quizId, score, total: questions.length })
-    onFinish?.({ score, total: questions.length })
+    onFinish?.({ score, total: questions.length, picked })
   }
 
   if (questions.length === 0) {
